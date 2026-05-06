@@ -1,13 +1,13 @@
 target_model:
   architecture: resnet152
   num_classes: 9
-  weights: results/resnet152_20260505_091226/Classifier_1.0000_no_val.pth
+  weights: trained_model/my_trained_model.pth
 
 #wandb_target_run: model_inversion_targets_facescrub/XXXXXXXXX # WandB training run for target model.
 #wandb_evaluation_run: model_inversion_evaluation/XXXXXXXXX # WandB training run for evaluation model.
 stylegan_model: stylegan2-ada-pytorch/ffhq.pkl # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.
-dataset: custom  # Target dataset, select one of [facescrub, celeba_identities, stanford_dogs_cropped, stanford_dogs_uncropped].
+dataset: custom # Target dataset, select one of [facescrub, celeba_identities, stanford_dogs_cropped, stanford_dogs_uncropped].
 image_size: 128
 output_dir: results
 
