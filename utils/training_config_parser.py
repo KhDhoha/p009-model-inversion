@@ -201,14 +201,8 @@ class TrainingConfigParser:
                         transformation_list.append(
                             transformation_class(**args))
 
-        elif mode == 'test' and 'celeba' in dataset_name:
-            if isinstance(image_size, list):
-                transformation_list.append(T.CenterCrop(image_size))
-            else:
-                transformation_list.append(
-                    T.CenterCrop((image_size, image_size)))
         elif mode == 'test':
-            pass
+            transformation_list.append(T.CenterCrop((image_size, image_size)))
         else:
             raise Exception(f'{mode} is no valid mode for augmentation')
 

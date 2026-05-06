@@ -36,9 +36,10 @@ def main():
 
     # Create the target model architecture
     target_model = config.create_model()
-    if torch.__version__.startswith('2.'):
-        print('Compiling model with torch.compile')
-        target_model.model = torch.compile(target_model.model)
+    # Disabled torch.compile due to Triton dependency issues
+    # if torch.__version__.startswith('2.'):
+    #     print('Compiling model with torch.compile')
+    #     target_model.model = torch.compile(target_model.model)
 
     # Build the datasets
     train_set, valid_set, test_set = config.create_datasets()

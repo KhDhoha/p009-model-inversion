@@ -1,63 +1,52 @@
 
-target_model:
-  architecture: resnet152
-  num_classes: 9
-  weights: results/resnet152_20260505_091226/Classifier_1.0000_no_val.pth
-
-stylegan_model: stylegan2-ada-pytorch/ffhq.pkl
 seed: 42
 
-dataset: custom
-dataset_path: data/my_dataset
-image_size: 224
+model:
+  architecture: resnet50
+  num_classes: 9  # Adjust based on your dataset (e.g., 9 classes in my_dataset)
+  pretrained: true
 
-candidates:
-  num_candidates: 200
-  candidate_search:
-    search_space_size: 2000
-    center_crop: 800
-    resize: 224
-    horizontal_flip: true
-    batch_size: 25
-    truncation_psi: 0.5
-    truncation_cutoff: 8
+dataset:
+  type: custom  # Use 'custom' for your own dataset
+  path: data/my_dataset  # Path to your dataset folder
+  training_set_size: 2000  # Optional: limit training samples
+  validation_set_size: 500  # Optional: validation samples
+  image_size: 224
 
-attack:
-  batch_size: 16
-  num_epochs: 50
-  targets: all
-  discriminator_loss_weight: 0.0
-  single_w: true
-  clip: false
-  transformations:
-    CenterCrop:
-      size: 800
-    Resize:
-      size: 224
-      antialias: true
-    RandomResizedCrop:
-      size: [224, 224]
-      scale: [0.9, 1.0]
-      ratio: [1.0, 1.0]
-      antialias: true
-  optimizer:
-    Adam:
-      lr: 0.005
-      weight_decay: 0
-      betas: [0.1, 0.1]
-  lr_scheduler:
-    MultiStepLR:
-      milestones: [30, 40]
-      gamma: 0.1
+transformations:
+  RandomResizedCrop:
+    size: [224, 224]
+    scale: [0.8, 1.0]
+  RandomHorizontalFlip:
+    p: 0.5
+  ColorJitter:
+    brightness: 0.1
+    contrast: 0.1
 
-final_selection:
-  samples_per_target: 50
-  approach: transforms
-  iterations: 100
+optimizer:
+  Adam:
+    lr: 0.001
+    weight_decay: 0.0001
+
+lr_scheduler:
+  StepLR:
+    step_size: 50
+    gamma: 0.1
+
+training:
+  num_epochs: 100
+  batch_size: 32
+  label_smoothing: 0.0
+  dataloader_num_workers: 0  # Set to 0 to avoid pickling issues with custom dataset
+  save_path: results/
+
+rtpt:
+  name_initials: HP  # Your initials for RTPT progress tracking
+  experiment_name: Training custom model
 
 wandb:
   enable_logging: true
-  wandb_init_args:
-    project: model_inversion_attacks
+  args:
+    project: model_training
+    name: resnet50_custom_dataset
     save_code: true
-    name: resnet152_my_custom
