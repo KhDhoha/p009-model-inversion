@@ -6,6 +6,7 @@ import torch.optim as optim
 import torchvision.transforms as T
 import yaml
 from models.classifier import Classifier
+from models.defended_classifier import DefendedClassifier
 from rtpt.rtpt import RTPT
 from torchvision.datasets import *
 
@@ -27,7 +28,16 @@ class TrainingConfigParser:
     def create_model(self):
         model_config = self._config['model']
         print(model_config)
-        model = Classifier(**model_config)
+
+        model_config = model_config.copy()
+
+        is_defended = model_config.pop('defended', False)
+
+        if is_defended:
+            model = DefendedClassifier(**model_config)
+        else:
+            model = Classifier(**model_config)
+
         return model
 
     def create_datasets(self):
