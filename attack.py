@@ -7,6 +7,9 @@ from collections import Counter
 from copy import deepcopy
 from pathlib import Path
 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module=".*upfirdn2d.*")
+warnings.filterwarnings("ignore", category=UserWarning, module=".*bias_act.*")
 import numpy as np
 import torch
 import torchvision.transforms as T
@@ -82,7 +85,8 @@ def main():
     # Load basic attack parameters
     num_epochs = config.attack['num_epochs']
     batch_size_single = config.attack['batch_size']
-    batch_size = config.attack['batch_size'] * torch.cuda.device_count()
+    num_gpus = max(1, torch.cuda.device_count())
+    batch_size = config.attack['batch_size'] * num_gpus
     targets = config.create_target_vector()
 
     # Create initial style vectors
@@ -136,13 +140,69 @@ def main():
     optimization = Optimization(target_model, synthesis, discriminator,
                                 attack_transformations, num_ws, config)
 
+    # Optionally select the best candidate per target before iterating
+    if config.attack.get('choose_best_candidate', False):
+        print('Selecting best candidate per target for iterative optimization and live preview.')
+        unique_targets = torch.unique(targets).cpu().tolist()
+        selected_ws = []
+        selected_targets = []
+        candidate_eval_batch_size = int(
+            config.attack.get('choose_best_candidate_batch_size',
+                              max(1, batch_size_single)))
+        with torch.no_grad():
+            for t in unique_targets:
+                # indices for this target
+                idxs = (targets == t).nonzero().squeeze(1).cpu()
+                if idxs.numel() == 0:
+                    continue
+                best_conf = None
+                best_w = None
+
+                for start in range(0, idxs.numel(), candidate_eval_batch_size):
+                    chunk_idxs = idxs[start:start + candidate_eval_batch_size]
+                    candidates = w[chunk_idxs].to(device)
+                    imgs = optimization.synthesize(candidates, num_ws=num_ws)
+
+                    if config.attack.get('clip'):
+                        imgs = optimization.clip_images(imgs)
+                    if attack_transformations:
+                        imgs = attack_transformations(imgs)
+
+                    outputs = target_model(imgs)
+                    probs = outputs.softmax(dim=1)
+                    # gather confidence for target class t
+                    tgt_tensor = torch.full((probs.size(0), 1),
+                                            int(t),
+                                            dtype=torch.long,
+                                            device=probs.device)
+                    confidences = torch.gather(probs, 1, tgt_tensor).squeeze(1)
+                    chunk_best_conf, chunk_best_idx = torch.max(confidences,
+                                                                dim=0)
+
+                    if best_conf is None or chunk_best_conf.item() > best_conf:
+                        best_conf = chunk_best_conf.item()
+                        best_w = candidates[chunk_best_idx].detach().cpu().unsqueeze(0)
+
+                    del imgs, outputs, probs, confidences, candidates
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+
+                if best_w is None:
+                    continue
+                selected_ws.append(best_w)
+                selected_targets.append(torch.tensor(int(t)))
+        if len(selected_ws) > 0:
+            w = torch.cat(selected_ws, dim=0)
+            targets = torch.stack(selected_targets).to(device)
+            print(f'Selected {w.shape[0]} best candidates, one per target: {targets.tolist()}')
+
     # Collect results
     w_optimized = []
 
     # Prepare batches for attack
     for i in range(math.ceil(w.shape[0] / batch_size)):
-        w_batch = w[i * batch_size:(i + 1) * batch_size].cuda()
-        targets_batch = targets[i * batch_size:(i + 1) * batch_size].cuda()
+        w_batch = w[i * batch_size:(i + 1) * batch_size].to(device)
+        targets_batch = targets[i * batch_size:(i + 1) * batch_size].to(device)
         print(
             f'\nOptimizing batch {i+1} of {math.ceil(w.shape[0] / batch_size)} targeting classes {set(targets_batch.cpu().tolist())}.'
         )

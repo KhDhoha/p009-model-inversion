@@ -1,5 +1,5 @@
 target_model:
-  architecture: resnet152
+  architecture: resnet50
   num_classes: 9
   weights: trained_model/my_trained_model.pth
 

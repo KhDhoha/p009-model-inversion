@@ -7,6 +7,10 @@ import torch.nn as nn
 import torchvision.utils as vutils
 import wandb
 import os
+try:
+    import cv2
+except Exception:
+    cv2 = None
 
 
 class Optimization():
@@ -58,9 +62,6 @@ class Optimization():
             # Live preview: log only the first image, always overwritten
             if self.config.log_progress and torch.cuda.current_device() == 0:
                 with torch.no_grad():
-                    img = imgs[0].detach().cpu()
-                    wandb.log({"live_preview": wandb.Image(img, caption=f"Iter {i}")}, commit=True)
-    
                     confidence_vector = outputs.softmax(dim=1)
                     confidences = torch.gather(confidence_vector, 1, targets_batch.unsqueeze(1))
                     mean_conf = confidences.mean().detach().cpu()
@@ -68,7 +69,25 @@ class Optimization():
                         f'iteration {i}: \t total_loss={loss:.4f} \t target_loss={target_loss:.4f} \t',
                         f'discriminator_loss={discriminator_loss:.4f} \t mean_conf={mean_conf:.4f}'
                     )
-    
+                    try:
+                        if wandb.run is not None:
+                            img = imgs[0].detach().cpu()
+                            wandb.log({"live_preview": wandb.Image(img, caption=f"Iter {i}")}, commit=True)
+                    except:
+                        pass
+                    # Also show an on-screen live preview using OpenCV when available
+                    try:
+                        if cv2 is not None:
+                            # create a grid of images
+                            grid = vutils.make_grid(imgs.detach().cpu(), nrow=min(8, imgs.size(0)), normalize=True, value_range=(-1, 1))
+                            npimg = (grid.permute(1, 2, 0).numpy() * 255).astype('uint8')
+                            # convert RGB -> BGR for OpenCV
+                            bgr = cv2.cvtColor(npimg, cv2.COLOR_RGB2BGR)
+                            cv2.namedWindow('live_preview', cv2.WINDOW_NORMAL)
+                            cv2.imshow('live_preview', bgr)
+                            cv2.waitKey(1)
+                    except Exception:
+                        pass
                 # Save per-epoch results for each sample in the batch
                 imgs_epoch = imgs.detach().cpu()
                 for idx, (img, target) in enumerate(zip(imgs_epoch, targets_batch)):

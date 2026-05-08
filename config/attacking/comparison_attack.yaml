@@ -1,0 +1,64 @@
+target_model:
+  architecture: resnet50
+  num_classes: 9
+  weights: trained_model/my_trained_model.pth
+
+stylegan_model: stylegan2-ada-pytorch/ffhq.pkl
+seed: 42
+dataset: data/my_dataset
+image_size: 128
+output_dir: results
+
+candidates:
+  num_candidates: 30
+  candidate_search:
+    search_space_size: 500
+    center_crop: 800
+    resize: 224
+    horizontal_flip: true
+    batch_size: 2
+    truncation_psi: 0.5
+    truncation_cutoff: 8
+
+attack:
+  batch_size: 2
+  num_epochs: 50
+  targets: 5
+  discriminator_loss_weight: 0.0
+  log_progress: false
+  single_w: true
+  clip: false
+  transformations:
+    CenterCrop:
+      size: 800
+    Resize:
+      size: 224
+      antialias: true
+    RandomResizedCrop:
+      size: [224, 224]
+      scale: [0.9, 1.0]
+      ratio: [1.0, 1.0]
+      antialias: true
+
+  optimizer:
+    Adam:
+      lr: 0.005
+      weight_decay: 0
+      betas: [0.1, 0.1]
+
+  lr_scheduler:
+    MultiStepLR:
+      milestones: [60, 80]
+      gamma: 0.1
+
+final_selection:
+  samples_per_target: 5
+  approach: transforms
+  iterations: 30
+
+wandb:
+  enable_logging: false
+  wandb_init_args:
+    project: model_inversion_attacks
+    save_code: true
+    name: comparison_vulnerable
